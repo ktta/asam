@@ -52,24 +52,24 @@ typedef struct
   };
 } aevent_t;
 
-static int cpipe_create(cpipe_t **CP)
+static cpipe_t* cpipe_create()
 {
+  cpipe_t *CP;
   int fd[2];
-  *CP= NULL;
-  if (pipe2(fd,O_DIRECT)) { kill(getpid(), SIGPIPE); return 1; }
-  *CP= malloc(sizeof(**CP));
-  (*CP)->fd_in= fd[0];
-  (*CP)->fd_out= fd[1];
-  return 0;
+  if (pipe2(fd,O_DIRECT)) return NULL; 
+  CP= malloc(sizeof(*CP));
+  CP->fd_in= fd[0];
+  CP->fd_out= fd[1];
+  return CP;
 }
 
-static void cpipe_destroy(cpipe_t **CP)
+static cpipe_t* cpipe_destroy(cpipe_t *CP)
 {
-  if (!*CP) return ;
-  if ((*CP)->fd_out>=0) close((*CP)->fd_out);
-  if ((*CP)->fd_in>=0) close((*CP)->fd_in);
-  free(*CP);
-  *CP= NULL;
+  if (!CP) return NULL;
+  if (CP->fd_out>=0) close(CP->fd_out);
+  if (CP->fd_in>=0) close(CP->fd_in);
+  free(CP);
+  return NULL;
 }
 
 static int cpipe_send(cpipe_t *CP, aevent_t *cmd)
@@ -117,7 +117,7 @@ again:
     break;
   case JNB_SURFACE_NEW: // we got the surface we can start drawing
     if (app.window)
-       ANativeWindow_release(app.window);
+      ANativeWindow_release(app.window);
     app.window= cmd->surface_new.window;
     app.window_w= ANativeWindow_getWidth(app.window);
     app.window_h= ANativeWindow_getHeight(app.window);
@@ -127,9 +127,7 @@ again:
     break;
   case JNB_SURFACE_DEL:
     if (app.window)
-    {
       ANativeWindow_release(app.window);
-    }
     app.window= NULL;
     reloop |= RL_SURFACE;
     ocmd.type= JNB_ACK_SURFACE_DEL;
@@ -141,7 +139,6 @@ again:
 #undef RL_SURFACE
 #undef RL_PAUSE
 }
-
 
 static void fill_rect(ANativeWindow_Buffer *B, ARect *R, uint32_t color)
 {
@@ -288,7 +285,6 @@ static void* worker_entry(void *_arg)
        // do the animation
     }
   }
-  kill(getpid(), SIGQUIT);
   return NULL; // FIXME: do the cleanup.
 }
 
@@ -296,8 +292,8 @@ static jboolean jnbSetup(JNIEnv* env, jobject thiz)
 {
   pthread_attr_t attr;
 
-  if (cpipe_create(&app.worker2main) ||
-      cpipe_create(&app.main2worker))
+  if (!(app.worker2main=cpipe_create()) ||
+      !(app.main2worker=cpipe_create()))
      return JNI_FALSE;
 
   app.activity= thiz;
@@ -326,8 +322,6 @@ void jnbSurfaceDel(JNIEnv *env, jobject thiz)
   while(!cpipe_recv(app.worker2main, &cmd))
     if (cmd.type==JNB_ACK_SURFACE_DEL) break;
 }
-
-
 
 jint JNI_OnLoad(JavaVM *vm, void *reserved)
 {
