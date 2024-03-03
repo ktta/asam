@@ -26,8 +26,6 @@ enum {
   JNB_ACK_SURFACE_DEL
 };
 
-int *badptr;
-
 typedef struct
 {
   cpipe_t *worker2main, *main2worker;
@@ -86,6 +84,15 @@ static int cpipe_recv(cpipe_t *CP, aevent_t *cmd)
   return read(CP->fd_in, cmd, sizeof(*cmd))!=sizeof(*cmd) ? 1 : 0;
 }
 
+/**
+  returns 1     if there is an I/O error. ie. there is something wrong
+                with the pipe. almost never happens, the pipe is between
+                the threads of the same process, its write end gets never
+                closed unless Android does some extreme fd-closing before
+                the whole process has terminated.
+
+  returns 0     normal operation
+ **/
 static int worker_get_event(aevent_t *cmd)
 {
 #define RL_SURFACE 1
@@ -99,7 +106,7 @@ again:
   if (cpipe_recv(app.main2worker, cmd)) return 1;
   switch(cmd->type)
   {
-  case JNB_QUIT:        // quitting without getting started :)
+  case JNB_QUIT: 
     return 0;
   case JNB_PAUSE:
     reloop |= RL_PAUSE;
@@ -348,23 +355,4 @@ jint JNI_OnLoad(JavaVM *vm, void *reserved)
   else
      return -1;
 }
-
-
-/***
-  Type signature                 Java Type
- ----------------               -----------
-     Z                            boolean
-     B                            byte
-     C                            char
-     S                            short
-     I                            int
-     J                            long
-     F                            float
-     D                            double
-     L fully-qualified-class ;    fully-qualified-class
-     [ type                       type[]
-     ( arg-types ) ret-type       method type
-
-https://docs.oracle.com/javase/7/docs/technotes/guides/jni/spec/types.html
- ***/
 
