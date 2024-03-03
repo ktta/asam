@@ -9,6 +9,11 @@
 
 #define  FRAME_RATE 60
 
+/**
+  This is missing in headers for some reason.
+ **/
+int pipe2(int pipefd[2], int flags);
+
 
 typedef struct
 {
@@ -31,7 +36,6 @@ typedef struct
   JNIEnv *env;
   JavaVM *vm;
   jobject activity, activity_ref;
-  jobject surface, surface_ref;
 
   ANativeWindow *window;
   int window_w, window_h, window_format;
